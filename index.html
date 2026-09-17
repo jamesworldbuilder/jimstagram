@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>What I Want</title>
+
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+		
+		body {
+			margin: 0;
+			background: white;
+			color: black;
+			font-family: "Times New Roman", serif;
+		}
+
+		.banner {
+			position: sticky;
+			top: 0;
+			z-index: 5;
+
+			width: 100%;
+			margin: 0;
+			padding-block: 0.3vh;
+			padding-inline: 3.5rem;
+
+			background: #eeeeee;
+			border: none;
+			border-bottom: 1px solid black;
+			text-align: left;
+		}
+
+		.banner h3 {
+			margin: 0;
+			padding-block: 0.8vh;
+			padding-inline: 0;
+			font-size: clamp(1rem, 1vw, 0.85rem);
+			line-height: 1;
+			font-weight: normal;
+			letter-spacing: 0.08em;
+		}
+
+		.collage {
+			width: 100%;
+			box-sizing: border-box;
+			padding: 4vw 2vw;
+			
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 0.5vw;
+			align-items: flex-start;
+		}
+
+		.collage img {
+			width: 28vw;
+			aspect-ratio: 3 / 2;
+			object-fit: contain;
+			background: white;
+			display: block;
+			cursor: zoom-in;
+		}
+
+		.lightbox {
+			/*
+			 * This controls both:
+			 * - the space above the image
+			 * - the space between the image and each arrow
+			 */
+			--lightbox-space: 6vh;
+
+			/*
+			 * The width reserved for each arrow.
+			 */
+			--arrow-width: 6vw;
+
+			/*
+			 * The image is enlarged relative to the window height.
+			 * On narrow windows, it shrinks only enough to preserve
+			 * the gap between the image and the arrows.
+			 */
+			--image-width: min(
+				85vh,
+				calc(
+					100vw
+					- var(--arrow-width)
+					- var(--arrow-width)
+					- var(--lightbox-space)
+					- var(--lightbox-space)
+					- var(--lightbox-space)
+					- var(--lightbox-space)
+				)
+			);
+
+			display: none;
+			position: fixed;
+			z-index: 10;
+			inset: 0;
+
+			overflow-y: auto;
+			scrollbar-gutter: stable both-edges;
+			background: rgba(0, 0, 0, 0.8);
+
+			/*
+			 * Keep the vertical padding, but allow the horizontal
+			 * space outside the arrows to reduce as the window narrows.
+			 */
+			padding-top: var(--lightbox-space);
+			padding-right: 0;
+			padding-bottom: calc(
+				var(--lightbox-space) + var(--description-bottom-space)
+			);
+			padding-left: 0;
+
+			grid-template-columns: 1fr auto 1fr;
+			align-items: center;
+			align-content: center;
+		}
+
+		.lightbox-content {
+			grid-column: 2;
+			grid-row: 1;
+
+			width: var(--image-width);
+			max-width: 100%;
+			
+			justify-self: center;
+			align-self: center;
+
+			/*
+			 * Make the grid's alignment area equal to the image height.
+			 * The description remains visually below the image but does
+			 * not affect the image's vertical centering.
+			 */
+			margin-bottom: calc(
+				var(--description-height, 0px) * -1
+			);
+		}
+
+		/* Tall images start below the top padding and can be scrolled */
+		.lightbox.tall .lightbox-content {
+			align-content: start;
+			transform: none;
+			padding-bottom: 1.5rem;
+		}
+
+		.lightbox img {
+			display: block;
+			width: 100%;
+			height: auto;
+			max-width: 100%;
+
+			background: white;
+			cursor: zoom-out;
+		}
+		
+		.image-description-overlay {
+			margin-top: 1rem;
+			padding: 1rem;
+
+			width: 100%;
+			background: white;
+			color: black;
+
+			font-family: "Times New Roman", serif;
+			font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+			line-height: 1.4;
+			text-align: justify;
+		}
+
+		.image-description-overlay:empty {
+			display: none;
+		}
+
+		.image-description-overlay p {
+			margin: 0 0 1rem;
+		}
+
+		.image-description-overlay p:last-child {
+			margin-bottom: 0;
+		}
+
+		.image-description-overlay h1,
+		.image-description-overlay h2,
+		.image-description-overlay h3 {
+			margin-top: 0;
+			margin-bottom: 0.75rem;
+			font-weight: normal;
+		}
+
+		.image-description-overlay ul,
+		.image-description-overlay ol {
+			margin-top: 0.5rem;
+			margin-bottom: 1rem;
+			padding-left: 1.5rem;
+		}
+
+		.previous,
+		.next {
+			position: fixed;
+			z-index: 12;
+
+			top: 50%;
+			transform: translateY(-50%);
+
+			width: var(--arrow-width);
+
+			color: white;
+			font-family: Arial, sans-serif;
+			font-size: 5vw;
+			line-height: 1;
+			text-align: center;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		/*
+		 * The gap between each arrow and the image is always
+		 * exactly --lightbox-space.
+		 */
+		.previous {
+			left: max(
+				var(--lightbox-space),
+				calc(
+					50%
+					- (var(--image-width) / 2)
+					- var(--lightbox-space)
+					- var(--arrow-width)
+				)
+			);
+		}
+
+		.next {
+			right: max(
+				var(--lightbox-space),
+				calc(
+					50%
+					- (var(--image-width) / 2)
+					- var(--lightbox-space)
+					- var(--arrow-width)
+				)
+			);
+		}
+
+		.close {
+			position: fixed;
+			z-index: 13;
+			top: 2vh;
+			right: var(--lightbox-space);
+
+			color: white;
+			font-family: Arial, sans-serif;
+			font-size: 5vw;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		@media (max-width: 600px) {
+			.lightbox {
+				--lightbox-space: 6vh;
+				--arrow-width: 10vw;
+
+				/*
+				 * Keep the image large on mobile too.
+				 */
+				--image-width: min(
+					85vh,
+					calc(
+						100vw
+						- var(--arrow-width)
+						- var(--arrow-width)
+						- var(--lightbox-space)
+						- var(--lightbox-space)
+						- var(--lightbox-space)
+						- var(--lightbox-space)
+					)
+				);
+			}
+
+			.previous,
+			.next {
+				font-size: 8vw;
+			}
+		}
+	</style>
+</head>
+
+<body>
+	<header class="banner">
+		<h3>jimstagram</h3>
+	</header>
+	
+	<div class="collage">
+		<img src="images/id-software-john-carmack.jpeg" data-description="id-software-john-carmack-desc">
+		<img src="images/id-software-john-romero.jpeg" data-description="id-software-john-romero-desc">
+		<img src="images/id-software-dev-team.jpeg">
+		<img src="images/bioshock-dev-team.jpeg">
+		<img src="images/fallout4-dev-team.jpeg">
+		<img src="images/bethesda-softworks-office.jpeg">
+		<img src="images/bethesda-softworks-christopher-weaver.jpeg" data-description="bethesda-softworks-christopher-weaver-desc">
+		<img src="images/bethesda-softworks-dev-team.jpeg">
+		<img src="images/fallout3-dev-team.jpeg">
+		<img src="images/ac1-dev-team.jpeg">
+		<img src="images/ubisoft-corey-may.jpeg" data-description="ubisoft-corey-may-desc">
+		<img src="images/ac2-dev-team.jpeg">
+		<img src="images/ac4-dev-team.jpeg">
+		<img src="images/ubisoft-mocap-1.jpeg">
+		<img src="images/ubisoft-mocap-2.jpeg">
+		<img src="images/ubisoft-mocap-3.jpeg">
+		<img src="images/rockstar-studios-mocap-1.jpeg">
+		<img src="images/rockstar-studios-mocap-2.jpeg">
+		<img src="images/gta1-dev-team.jpeg">
+		<img src="images/gta3-dev-team.jpeg">
+		<img src="images/dma-designs-mike-dailly.jpeg" data-description="dma-designs-mike-dailly-desc">
+		<img src="images/rockstar-studios-mocap-3.jpeg">
+		<img src="images/rocksteady-studios-mocap-1.jpeg">
+		<img src="images/rocksteady-studios-mocap-2.jpeg">
+		<img src="images/rocksteady-studios-mocap-3.jpeg">
+		<img src="images/rocksteady-studios-dev-team.jpeg">
+		<img src="images/rocksteady-studios-office-1.jpeg">
+		<img src="images/rocksteady-studios-office-2.jpeg">
+		<img src="images/rocksteady-studios-office-3.jpeg">
+		<img src="images/microprose-sid-miers.jpeg" data-description="microprose-sid-miers-desc">
+		<img src="images/rockstar-north-studio.jpeg">
+		<img src="images/cd-projekt-red-dev-team.jpeg">
+		<img src="images/cd-projekt-red-office-1.jpeg">
+		<img src="images/cd-projekt-red-office-2.jpeg">
+		<img src="images/cd-projekt-red-office-3.jpeg">
+		<img src="images/the-pokemon-company-satoshi-tajiri.jpeg" data-description="the-pokemon-company-satoshi-tajiri-desc">
+		<img src="images/the-pokemon-company-concept-art.jpeg" data-description="the-pokemon-company-concept-art-desc">
+		<img src="images/io-interactive-concept-art-1.jpeg">
+		<img src="images/io-interactive-concept-art-2.jpeg">
+		<img src="images/io-interactive-dev-team.jpeg">
+		<img src="images/io-interactive-office-1.jpeg">
+		<img src="images/io-interactive-office-2.jpeg">
+		<img src="images/io-interactive-concept-art-3.jpeg">
+		<img src="images/io-interactive-concept-art-4.jpeg">
+		<img src="images/io-interactive-office-3.jpeg">
+		<img src="images/io-interactive-office-4.jpeg">
+		<img src="images/tetris-alexey-pajitnov.jpeg" data-description="tetris-alexey-pajitnov-desc">
+		<img src="images/stardew-valley-eric-barone.jpeg" data-description="stardew-valley-eric-barone-desc">
+	</div>
+  
+	<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+		<span class="close">×</span>
+
+		<span class="previous" onclick="previousImage(event)">&#10094;</span>
+
+		<div class="lightbox-content" onclick="event.stopPropagation()">
+			<img id="largeImage" src="" alt="">
+			<div id="imageDescription" class="image-description-overlay"></div>
+		</div>
+		
+		<span class="next" onclick="nextImage(event)">&#10095;</span>
+	</div>
+	
+	<template id="id-software-john-carmack-desc">
+		_id Software_ was created in January, 1991. During their first year, with a 
+		group of four, they published thirteen games. They spent two months on each game,
+		developing two games at a time. They programmed in C and Assembly language, for 
+		the Apple II, Commodore 64, and MS-DOS computers, developing their own engine and 
+		tools during the process.
+		
+		The founders of id Software — _John Carmack_, _Tom Hall_, and _John Romero_ — met 
+		in the offices of _Softdisk_, based in Shreveport, Louisiana. They developed multiple 
+		games for Softdisk's monthly publishing, including a DOS platformer called _Dangerous 
+		Dave_. With the addition of _Lane Roather_ to the group, another Softdisk employee, 
+		they'd formed a new team they coined _Ideas From the Deep_, or "_IFD_" for short, a 
+		name that Romero and Roather had come up with. 
+		
+		In 1990, Carmack developed a new efficient way to rapidly side-scroll graphics on the 
+		computer screen. Upon making this breakthrough, Carmack and Hall stayed up late into 
+		the night making a replica of the first level of the popular 1988 Nintendo Entertainment 
+		System (NES) game, _Super Mario Bros. 3_, inserting stock graphics of Romero's Dangerous 
+		Dave character in lieu of Mario. When Romero saw the demo, titled "_Dangerous Dave in 
+		Copyright Infringement_," he realized that Carmack's and Tom's efforts had potential to 
+		become something really special. The IFD team decided to grind their programming skills 
+		over the next week to create a larger demo. Then, they sent it to _Nintendo_... 
+	</template>
+	
+	<template id="id-software-john-romero-desc">
+		The team at id Software was working within rapid development timeframes and aiming 
+		for extreme quality. They wanted to stand out, so they had to optimize developer 
+		workflows and machine processing time. To solve these issues, they made their own 
+		game engine, level editor, and even created their own music file format. In the early 
+		days, a large majority of their development time was invested into making custom 
+		software tools to cater to their specific development needs, which were designed to 
+		speed up the game development process of what would've been an otherwise massive 
+		manual undertaking.
+		
+		"_Other games had a lot of bugs because their developers weren't running the thing
+		they actually coded. Or they'd run it but, because they coded it, they wouldn't 
+		try to hurt it. But you need to _ruin_ your code. We played our games over and over
+		again. It's not just about playing it, but trying to mess it up. It was a pride thing
+		to not have anything coming from QA for your code. It was a challenge: '_We should
+		not have anything wrong with our code._' Good nature fun. We had no unit tests; we 
+		didn't know what those were. It was easier to debug with hardware breakpoints. We had
+		no manager to talk to about anything. We were a hive mind, a small team of friends 
+		just figuring it out. We managed ourselves._"
+	</template>
+	
+	<template id="bethesda-softworks-christopher-weaver-desc">
+		_Christopher Weaver_'s path into video games begins with a forgotten company called 
+		_Miscellaneous Magic_, which, despite its name, was a lot less glamorous than you 
+		might imagine. The company was a Saudi-backed research project in the late 1970s and 
+		early 1980s, looking into newer types of known technology, such as new forms of computer 
+		interfaces and screens that, before then, '_had barely existed outside of the military,_'
+		Weaver says. Eventually, he was able to buy up some of the technology they'd been working 
+		on, including what was then considered a '_cutting-edge_' PDP 11 computer, '_which was 
+		pretty sustantial hardware for a small company like ours to acquire in those days,_" 
+		Weaver added. With this new hardware, Weaver and his team out of their corporate offices 
+		in Rockville, Maryland, and into Weaver's house. Together, they launched a consulting 
+		company — initially, with no intention of creating video games. 
+		
+		While most of team was focused on creating simulations for the military and other ways 
+		to make money, one of them decided to take things in a different direction. "_Ed Fletcher 
+		was a Florida Gators fan,_" Weaver says. "_One day he asked me whether or not he could 
+		just build a software product that would play football._" Using the PDP 11, Fletcher 
+		developed _Gridiron_, now believed to be the first ever physics-based sports simulation. 
+		After realizing how fun the football simulator was to play, Weaver and the rest of the 
+		team decided to see if they could apply the same technology to make a game based on the 
+		sport of hockey. The team started attending _Washington Capitals Games_, dressed in suits 
+		and weilding pens and paper to take copious amounts of notes on everything they saw. 
+		"_People who were sitting not too far from us would ask us if we were with the government,_" 
+		Weaver jokes. Later, in 1988, their newly formed company, _Bethesda Softworks_, released 
+		the video game _Wayne Gretzky Hockey_ and never looked back. 
+	</template>
+	
+	<template id="ubisoft-corey-may-desc">
+		In College, _Corey May_ worked part-time for a video game company, telecommuting to write 
+		stories for an online multiplayer game called _Cartoon Universe_. After earning an M.F.A. 
+		in film producing at the University of Southern California, where he met his future business 
+		partner, _Dooma Wendschuh_, the two of them launched _sekretagent Productions_. Focusing on 
+		film production at the time, they managed to sell one movie to _Disney_, which was "_in 
+		development hell for eleven years,_" Mays says, until unfortunately being discontinued. 
+		
+		Luckily, at that time multiple video game companies had begun scouring Los Angeles, California, 
+		for new Hollywood talent and Mays found that his old video game storytelling skills were 
+		in demand once again. "_No one wanted to write scripts for games then,_" Mays recalls. "_It 
+		wasn't movies or TV, it wasn't sexy, and there wasn't enough money in doing it._" But Mays 
+		loved games, had a decent body of work from his days writing quest line narratives for MMORPGs 
+		and knew some lesser known tricks to creating drama and emotion on screen, especially within 
+		interactive experiences. Before long, May and Wendschuh were able to get connected with _Ubisoft_, 
+		in Montreal, Canada, and decided to try pitching them an animated televison show idea based on 
+		the Ubisoft game franchise, _Rayman_, but despite their efforts it was rejected. However, 
+		the executives at Ubisoft did like May and his passion for video games, so they invited him 
+		to join their team, helping to write the next _Prince of Persia_ game, titled _Prince of 
+		Persia: Warrior Within_. After the game's success, May was asked to provide his writing 
+		expertise, over the following four years, on a new video game IP, the now internationally 
+		acclaimed industry masterpiece, _Assassin's Creed_. 
+		
+		"_I think that for a long time, games were very mechanically driven — narrative in the traditional 
+		sense wasn't front and center, in arcade classics like Pac-Man or Galaga, for example. It 
+		wasn't until PC games that video games could be used for storytelling. As a general rule, 
+		people don't believe video game developers take narrative seriously. For me, medium doesn't 
+		impact the story being told. At most, it will impact the way the story is told. So player 
+		interaction doesn't consciously impact the approach, but it may have an impact on some of 
+		the execution. We're not designing a passive experience. Entertainment usually means 
+		spectatorship — those who create it may have the audience in mind, but not the audience's 
+		input in mind, which is an important distinction. It's more immersive and personalized 
+		when you have that participating audience. Interactivity changes everything._"
+	</template>
+	
+	<template id="dma-designs-mike-dailly-desc">
+		One of the original founders at _DMA Design_, which stands for _Design, Management, 
+		and Analysis Design_, was a programmer named _Mike Dailly_, who founded the company 
+		alongside _David Jones_, _Russell Kay_, and _Steve Hammond_ in 1989. "_Mike was basically 
+		doing a tech expirement as a way of showing how buildings could look in 3D from top-down, 
+		with a little bit of perspective,_" says Colin MacDonald, who joined DMA Design in 1997 
+		as a producer. "_So he basically came up with a dinosaur game,_" MacDonald adds. "_You 
+		had this city that moved around in some old-school form of 3D, but you were literally a 
+		dinosaur roaming around and destroying buildings. That was what GTA started as,_" MacDonald 
+		laughs. Later, Mike decided to add in vehicle animations — "_little cars driving around, 
+		just to bring the city to life,_" MacDonald says. Then, one of the other programmers suggested 
+		the idea to integrate into the game a way for the player to actually drive one of the cars 
+		rather than being limited to only controlling the dinosaur. "_Suddenly, it became a car game,_" 
+		MacDonald emphasizes. That game was referred to by the team as _Race 'n Chase_, until 
+		"_Someone realized how cool it would be if we let the player get out of the car and run 
+		around, and even jump in and out of other cars,_" MacDonald details. "_At that point, 
+		the whole concept morphed,_" he says, into the now critically acclaimed, most influencial 
+		and commercially successful, world-renowned video game franchise, the _Grand Theft Auto_ 
+		(_GTA_) series. 
+	</template>
+	
+	<template id="microprose-sid-miers-desc">
+		Born in Ontario, Canada, but raised in Detroit, Michigan, _Sidney Meier_ was a computer 
+		enthusiast and programming hobbiest from a young age, fueled by the growing technology scene
+		of the 1970s. While attending the University of Michigan, studying a degree in history, 
+		which would later influence his choice of projects, Meier signed up for a workstudy position 
+		with his then physics professor, _Noah Sherman_, who happened to be an early advocate for 
+		computer-assisted learning. Meier was already taking one programming course, so Prof. Sherman 
+		hired him with the expectation that he'd help expand the program in the new areas of computing. 
+		One summer, while Prof. Sherman was traveling, he'd given Meier some programming assignments 
+		to complete, which included an artificial intelligence project that Meier addressed by 
+		teaching the computer to play the classic _Tic-Tac-Toe_ game. In those days, programs were 
+		run on punchcards, and printouts of results were sorted and handed out by the computer central 
+		personnel. Well, the person sorting the printouts saw Meier's Tic-Tac-Toe games and was not 
+		amused. Meier was confronted about them — the personnel warned him, "_You can't do this. 
+		Computers are not for playing games._" The same personnel called Meier's professor to have him 
+		disciplined, but fortunately Prof. Sherman assured her that the work was in fact legitimate. 
+		
+		After graduation, Meier started working as a systems analyst for _General Instrument_, installing 
+		networked cash register systems in stores. The company also made gambling machines, which led Meier 
+		to Las Vegas, Nevada, on a business trip, where he struck up a conversation with one of his coworkers, 
+		_Bill Stealey_, a former Air Force pilot. One evening during a company seminar that both men 
+		were attending, they struck up a conversation, in which Stealey shared some stories of his days 
+		in the Air Force and Meier mentioned to him he'd been working on making a small flying simulator 
+		game in his spare time. Meier had already sold his first video game at the time, _Formula 1 Racing_, 
+		to _Acorn Software_. Intrigued by Meier's background, Stealey expressed to Meier how he really 
+		wanted to get into selling video games and suggested that they both go into business together. Meier 
+		was initially hesitant to the idea, but as their work trip progressed the two found themselves 
+		occupying their off-time in various arcades along Las Vegas Boulevard. Meier would consistantly 
+		beat Stealey at nearly every game. But it wasn't until the former fighter pilot was beaten at the 
+		first-person biplane flight simulator game, _Red Baron_, by his geeky programmer coworker, that 
+		Stealey was dumbstruck by Meier's potential. "_How'd you do it,_" Stealey asked Meier. "_I was 
+		an actual pilot,_" Stealey said. "_While you were playing, I memorized the game's algorithms,_" 
+		Meier replied. For the next couple hours, Meier explained to the fascinated Stealey what exactly he 
+		meant by his answer and how the game worked under the hood, from what he could assess while playing it. 
+		"_I could design a better game in two weeks,_" Meier said. "_Then do it,_" Stealey asserted — "_If 
+		you can do it, I can sell it._" This marked the beginning of one of the most important companies in 
+		video game history. 
+		
+		Together, Meier and Stealey formed _MicroProse_, based on their shared philosphy of simply developing 
+		video games they would enjoy playing. Meier would develop a game, hand it over to Stealey, who'd play 
+		it and hand back a list of bugs and military inaccuracies he'd found in the game. As Meier worked out 
+		the kinks in the software, Stealey traveled around the country for General Instrument, bringing along 
+		copies of the game, pitching it to computer and hobby stores whenever he had the chance. The partnership 
+		was a success, with only two games in their company catalog — _Hellcat Ace_ and _Floyd of the Jungle_ — 
+		they'd managed to sell about five hundred games per month. Eventually, after Meier added two more games 
+		to their inventory, Stealey decided to start working full-time at MicroProse. 
+		
+		Meier was having fun pumping out new games he'd made, while Stealey, being the big ideas guy, kept pushing 
+		the limits of what they could make. Eventually, their catalog grew and so did their fanbase, following 
+		the popular release of their open-world adventure game, _Sid Meier's Pirates!_, which was arguably the 
+		grandfather of all open-world video games, introducing a whole new formula of gameplay to players. Meier 
+		didn't create the game alone — the undertaking required recruiting a fellow programmer and the game's 
+		designer, who originally pitched the pirate idea, _Arnold Hendrick_. Hendrick pushed for more realism in 
+		the game to counter-balance Meier's more fantastical elements, resulting in a nice blend of what gamers 
+		and critics were both craving. In 1988, it won "_Action Game of the Year_" from _Computing Gaming World_, 
+		an American computer game magazine, and in the following year, 1989, the game was named into the same 
+		publication's video game Hall of Fame. 
+		
+		Following the release of their open-world pirate adventure, Meier found himself in a development rut, 
+		exhausted with programmer's block, so to speak. He decided to take a much needed break and went on 
+		vacation to spend time with his family, but also to isolate himself from the busy grind of video game 
+		development to concentrate on one single idea without any distractions or expectations. When he returned, 
+		he had the team's first tycoon video game prototype, based on his childhood fascination of model railroads, 
+		a new game they called _Sid Meier's Railroad Tycoon_. This new project led to _Bruce Shelley_ joining their 
+		group, a fellow game designer who'd previously worked at a board game company. Shelley's knowledge of game 
+		mechanics combined with Meier's skills as a developer made the game a hit amoung fans and MicroProse 
+		soon became a well-known brand within the video games industry. Accompanying Shelley on a train to New York 
+		one morning, Meier was feeling inspired by another great tycoon game, _SimCity_, developed by _Will Wright_. 
+		Suddenly, he got an idea for something bigger, something about more than just the history of railroads.
+		Meier mentioned the idea to Shelley — "_What if we made a game about the entirety of human civilization?_" 
+		The rest is history. 
+	</template>
+	
+	<template id="the-pokemon-company-satoshi-tajiri-desc">
+		_Game Freak_ was a magazine in Japan, or as the magazine's co-founder, _Junichi Masuda_, refers to it, 
+		"_a mini-comic._" _Satoshi Tajiri_, began as an avid reader of the comic and would spend his days visiting arcades 
+		and then writing the publication's writers with tips about interesting games to be included in the magazine. Tajiri's 
+		shared enthusiasm for playing and designing video games led him to grow a close friendship with the Game Freak team, 
+		and following the 1983 release of The Family Computer, commonly known as the "Famicom" system (the NES in America), 
+		the group of friends started brainstorming how they could make their own arcade game. 
+		
+		"_When we first decided we wanted to make a game for real — for the Famicom — that's when we started development 
+		on 'Quinty' ('Mendel Palace' in America), and we were really true indies at the time,_" Masuda recounts. "_We 
+		were just friends having fun doing a hobby as we built that game._" 
+		
+		_Quinty_ is a puzzle game where the player flips tiles on a grid in order to avoid or dispose of enemies on 
+		a mission to save their girlfriend. The game was published in 1989 by _Namco_ in Japan. 
+		
+		"_When we first started making the game, we didn't really have any official development equipment,_" Masuda says. 
+		"_So we just sort of had to hack the NES and figure out how it worked to develop on it ourselves without the 
+		official sort of development tools._"
+	</template>
+	
+	<template id="the-pokemon-company-concept-art-desc">
+		In the early 1990s, _Satoshi Tajiri_, a video game designer from Japan, came up with the idea for a card game  
+		inspired by his childhood love for collecting bugs. Tajiri wanted to create a game that would allow players to 
+		capture, train, and battle creatures. With the help of _Ken Sugimori_, an illustrator, Tajiri developed the 
+		concept of "pocket monsters," he called them, or _Pokémon_ for short. 
+	</template>
+	
+	<template id="tetris-alexey-pajitnov-desc">
+		In 1977, _Alex Pajitnov_ worked as a summer intern at the Soviet Academy of Sciences. After he graduated, he 
+		accepted a job at the academy working on speech recognition in the Dorodnitsyn Computing Centre. When the 
+		Computing Centre received new equipment, the researchers would write a small program to test the equipment's 
+		computing capabilities, which became Pajitnov's excuse for making video games. 
+		
+		Based on his childhood memories of playing _Pentominoes_, a game in which a user created pictures using the 
+		shapes of the game pieces, Pajitnov recalled the challenge of putting the pieces back together to fit inside 
+		the box. One day, he became inspired to create a video game based on the concept, but he felt that recreating 
+		the original game exactly would be needlessly complicated, due to the twelve possible variations of pieces 
+		combinations. So, he scaled the concept down to "_Tetrominoes_," of which there are just seven variants instead. 
+		Over the course of just two weeks, using an Elektronika 60 machine in the Computing Centre, Pajitnov began 
+		working on the first prototype of what would soon become the world-renowned classic, known as _Tetris_.
+	</template>
+	
+	<template id="stardew-valley-eric-barone-desc">
+		In 2011, _Eric Barone_ embarked on a solo journey to create a unique and nostalgic video game, inspired by the 
+		original _Harvest Moon_ on the Super Nintendo, which he hoped would not only improve his employment prospects, 
+		but also cater to a niche group of fellow gamers who shared his joy of playing the beloved 16-bit classics.
+
+		What started as a venture to enhance his resume swiftly turned into a consuming passion, with Barone dedicating 
+		between eight to fifteen hours daily to bring his vision to life. He single-handedly shouldered the responsibility 
+		of not only coding, but also crafting the music, writing the story, and fine-tuning every intricate detail that 
+		would later be celebrated by millions worldwide as the indie farming simulator _Stardew Valley_. 
+		
+		His indie game didn't just succeed — it surpassed all expectations, selling over 20 million copies and generating 
+		revenue upwards of $300 million. All accomplished without a team, without significant initial backing, but with 
+		tireless effort and unyielding determination. 
+	</template>
+
+	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+	<script>
+		const images = document.querySelectorAll(".collage img");
+		let currentImage = 0;
+
+		images.forEach(function(image, index) {
+			const filename = image.getAttribute("src").split("/").pop();
+
+			image.alt = filename
+				.replace(/\.[^/.]+$/, "")
+				.replace(/[-_]+/g, " ");
+
+			image.addEventListener("click", function() {
+				openLightbox(index);
+			});
+		});
+
+		function openLightbox(index) {
+			currentImage = index;
+			const lightbox = document.getElementById("lightbox");
+
+			lightbox.classList.remove("tall");
+			lightbox.style.display = "grid";
+
+			updateLightbox();
+		}
+
+		function updateLightbox() {
+			const lightbox = document.getElementById("lightbox");
+			const lightboxContent = document.querySelector(".lightbox-content");
+			const largeImage = document.getElementById("largeImage");
+			const imageDescription = document.getElementById("imageDescription");
+
+			const thumbnail = images[currentImage];
+			const descriptionId = thumbnail.dataset.description;
+
+			// Reset the tall-image state when changing images
+			lightbox.classList.remove("tall");
+
+			// Clear the previous description
+			imageDescription.innerHTML = "";
+
+			// Add the optional Markdown description
+			if (descriptionId) {
+				const descriptionTemplate =
+					document.getElementById(descriptionId);
+
+				if (descriptionTemplate) {
+					const markdownText = descriptionTemplate.content.textContent
+						.trim()
+						.split(/\n\s*\n/)
+						.map(function(paragraph) {
+							return paragraph
+								.replace(/^[ \t]+/, "")
+								.replace(/\s*\n\s*/g, " ");
+						})
+						.join("\n\n");
+
+					imageDescription.innerHTML = marked.parse(markdownText);
+				}
+			}
+
+			// Set onload before changing src
+			largeImage.onload = function() {
+				const availableHeight = window.innerHeight * 0.84;
+
+				const descriptionStyles =
+					getComputedStyle(imageDescription);
+
+				const descriptionHeight =
+					imageDescription.getBoundingClientRect().height +
+					parseFloat(descriptionStyles.marginTop);
+
+				const contentHeight =
+					largeImage.getBoundingClientRect().height +
+					descriptionHeight;
+
+				/*
+				 * Tell the grid to subtract the height of the image description 
+				 * from the alignment area. The image is therefore centered, while
+				 * the description remains appended underneath it.
+				 */
+				lightbox.style.setProperty(
+					"--description-height",
+					`${descriptionHeight}px`
+				);
+
+				if (contentHeight > availableHeight) {
+					lightbox.classList.add("tall");
+				} else {
+					lightbox.classList.remove("tall");
+				}
+			};
+
+
+			largeImage.src = thumbnail.src;
+			largeImage.alt = thumbnail.alt;
+		}
+
+		function closeLightbox() {
+			document.getElementById("lightbox").style.display = "none";
+		}
+
+		function previousImage(event) {
+			event.stopPropagation();
+
+			currentImage =
+				(currentImage - 1 + images.length) % images.length;
+
+			updateLightbox();
+		}
+
+		function nextImage(event) {
+			event.stopPropagation();
+
+			currentImage =
+				(currentImage + 1) % images.length;
+
+			updateLightbox();
+		}
+
+		document.addEventListener("keydown", function(event) {
+			const lightbox = document.getElementById("lightbox");
+
+			if (lightbox.style.display !== "grid") {
+				return;
+			}
+
+			if (event.key === "Escape") {
+				closeLightbox();
+			} else if (event.key === "ArrowLeft") {
+				previousImage(event);
+			} else if (event.key === "ArrowRight") {
+				nextImage(event);
+			}
+		});
+	</script>
+	
+</body>
+</html>
