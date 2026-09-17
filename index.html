@@ -64,6 +64,29 @@
 			cursor: zoom-in;
 		}
 
+		.image-wrapper {
+			position: relative;
+			display: flex;
+		}
+
+		.description-icon {
+			position: absolute;
+			top: 0.5rem;
+			right: 0.5rem;
+			width: 1.6rem;
+			height: 1.6rem;
+			background-color: #222222;
+			color: white;
+			border-radius: 50%;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-family: Arial, sans-serif;
+			font-size: 1rem;
+			font-weight: bold;
+			pointer-events: none;
+		}
+
 		.lightbox {
 			/*
 			 * This controls both:
@@ -631,7 +654,58 @@
 			image.addEventListener("click", function() {
 				openLightbox(index);
 			});
+
+			// Wraps targeted images with container to position overlay icon
+			if (image.hasAttribute("data-description")) {
+				const wrapper = document.createElement("div");
+				wrapper.className = "image-wrapper";
+				
+				image.parentNode.insertBefore(wrapper, image);
+				wrapper.appendChild(image);
+				
+				const icon = document.createElement("div");
+				icon.className = "description-icon";
+				icon.innerHTML = "?";
+				wrapper.appendChild(icon);
+			}
 		});
+
+		// Calculates rendered dimensions of object-fit images to accurately position overlay icons
+		function updateIconPositions() {
+			const wrappers = document.querySelectorAll(".image-wrapper");
+			
+			wrappers.forEach(function(wrapper) {
+				const img = wrapper.querySelector("img");
+				const icon = wrapper.querySelector(".description-icon");
+				
+				if (!img || !icon || !img.naturalHeight) return;
+
+				const containerWidth = img.clientWidth;
+				const containerHeight = img.clientHeight;
+				const imgRatio = img.naturalWidth / img.naturalHeight;
+				const containerRatio = containerWidth / containerHeight;
+
+				let renderedWidth = containerWidth;
+				let renderedHeight = containerHeight;
+
+				// Determines if image is letterboxed or pillarboxed
+				if (imgRatio > containerRatio) {
+					renderedHeight = containerWidth / imgRatio;
+				} else {
+					renderedWidth = containerHeight * imgRatio;
+				}
+
+				const topOffset = (containerHeight - renderedHeight) / 2;
+				const rightOffset = (containerWidth - renderedWidth) / 2;
+
+				icon.style.top = `calc(${topOffset}px + 0.5rem)`;
+				icon.style.right = `calc(${rightOffset}px + 0.5rem)`;
+			});
+		}
+
+		// Triggers position updates upon initial load and window resizing
+		window.addEventListener("load", updateIconPositions);
+		window.addEventListener("resize", updateIconPositions);
 
 		function openLightbox(index) {
 			currentImage = index;
@@ -753,6 +827,5 @@
 			}
 		});
 	</script>
-	
 </body>
 </html>
